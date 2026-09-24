@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
+pdfplumber
+pdf2image
+pdf2docx
+pytesseract
+opencv-python-headless
+python-docx
+pyspellchecker

@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
+pdfplumber
+pdf2image
+pytesseract
+opencv-python-headless
+python-docx

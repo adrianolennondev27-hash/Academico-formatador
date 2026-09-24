@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+:root {
+  --fva-blue: #1e3a8a;
+  --fva-blue-light: #3b82f6;
+  --fva-red: #dc2626;
+  --fva-red-light: #ef4444;
+}
+
+body {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(0.95);
+    opacity: 0.7;
+  }
+}
+
+@keyframes wing-flap {
+  0%, 100% { transform: rotate(-2deg) translateX(0); }
+  50% { transform: rotate(2deg) translateX(2px); }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.4s ease-out;
+}
+
+.animate-pulse-ring {
+  animation: pulse-ring 2s ease-in-out infinite;
+}
+
+.animate-wing {
+  animation: wing-flap 1.5s ease-in-out infinite;
+}
