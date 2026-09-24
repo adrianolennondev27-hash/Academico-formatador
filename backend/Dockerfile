@@ -9,7 +9,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # - LibreOffice (conversão DOCX ↔ PDF ↔ ODT)
 # - Tesseract + pacote PT-BR (OCR de PDFs escaneados)
 # - Poppler (extração de imagens de PDF)
-# - Fonts (Arial / Times / Courier — Microsoft core fonts)
+# - fonts-liberation (Arial, Times, Courier — metricamente compatíveis)
+# - fonts-crosextra-carlito (Calibri compatível)
 # - libgl1 (necessário pro OpenCV)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libreoffice \
@@ -19,10 +20,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     poppler-utils \
     libgl1 \
     fontconfig \
-    cabextract \
-    wget \
-    && echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | debconf-set-selections \
-    && apt-get install -y --no-install-recommends ttf-mscorefonts-installer \
+    fonts-liberation \
+    fonts-crosextra-carlito \
     && fc-cache -f -v \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
