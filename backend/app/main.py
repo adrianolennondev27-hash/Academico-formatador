@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -11,10 +12,20 @@ app = FastAPI(
     version="1.1.0",
 )
 
-# CORS — em produção, troque "*" pelo domínio do seu frontend
+# CORS — permite desenvolvimento local + produção (Vercel)
+origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+# Adiciona a URL de produção do Vercel (definida em env var)
+frontend_url = os.getenv("FRONTEND_URL")
+if frontend_url:
+    origins.append(frontend_url)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -25,7 +36,7 @@ app.include_router(clean.router)
 app.include_router(upload.router)
 app.include_router(abnt.router)
 app.include_router(validation.router)
-app.include_router(convert.router)  # ← NOVO: conversão pura de formatos
+app.include_router(convert.router)
 
 
 @app.get("/")
