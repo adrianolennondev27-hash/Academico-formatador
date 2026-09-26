@@ -43,14 +43,22 @@ export async function limparTexto(texto: string): Promise<string> {
   return data.texto_limpo;
 }
 
-export async function uploadPDF(file: File): Promise<string> {
+// Envia qualquer arquivo (PDF, DOCX, TXT) para o backend extrair o texto
+export async function uploadArquivo(file: File): Promise<string> {
   const formData = new FormData();
   formData.append("file", file);
   const res = await fetch(`${API_URL}/upload`, {
     method: "POST",
     body: formData,
   });
-  if (!res.ok) throw new Error("Erro ao processar PDF");
+  if (!res.ok) {
+    let detalhe = "Erro ao processar o arquivo";
+    try {
+      const err = await res.json();
+      if (err?.detail) detalhe = err.detail;
+    } catch {}
+    throw new Error(detalhe);
+  }
   const data = await res.json();
   return data.texto_extraido;
 }

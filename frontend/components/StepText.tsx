@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, DragEvent } from "react";
-import { limparTexto, uploadPDF, converterArquivo } from "@/lib/api";
+import { limparTexto, uploadArquivo, converterArquivo } from "@/lib/api";
 
 interface Props {
   onNext: (textoLimpo: string) => void;
@@ -17,8 +17,7 @@ const FORMATOS_SAIDA: { value: FormatoSaida; label: string }[] = [
 
 export default function StepText({ onNext }: Props) {
   // ====================================================================
-  // BLOCO SUPERIOR — CONVERSÃO PURA (PDF↔Word, Word→ODT, etc.)
-  // Estado COMPLETAMENTE isolado. Nada daqui desce para o fluxo ABNT.
+  // BLOCO SUPERIOR — CONVERSÃO PURA (PDF ↔ Word, Word → ODT, etc.)
   // ====================================================================
   const [convArquivo, setConvArquivo] = useState<File | null>(null);
   const [convFormato, setConvFormato] = useState<FormatoSaida>("docx");
@@ -47,9 +46,11 @@ export default function StepText({ onNext }: Props) {
       a.remove();
       URL.revokeObjectURL(url);
       setConvBaixado(true);
-    } catch {
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "";
       setConvErro(
-        "Erro na conversão. Verifique se o LibreOffice está instalado e se o backend está rodando."
+        msg ||
+          "Erro na conversão. Verifique se o LibreOffice está instalado e se o backend está rodando."
       );
     } finally {
       setConvCarregando(false);
@@ -68,8 +69,7 @@ export default function StepText({ onNext }: Props) {
   }
 
   // ====================================================================
-  // BLOCO INFERIOR — FLUXO ABNT (comportamento existente mantido)
-  // Estado COMPLETAMENTE isolado. Nada daqui sobe para a conversão pura.
+  // BLOCO INFERIOR — FLUXO ABNT
   // ====================================================================
   const [texto, setTexto] = useState("");
   const [carregando, setCarregando] = useState(false);
@@ -101,15 +101,15 @@ export default function StepText({ onNext }: Props) {
     setErro("");
     setNomeArquivo(file.name);
     try {
-      if (file.name.toLowerCase().endsWith(".pdf")) {
-        const extraido = await uploadPDF(file);
-        setTexto(extraido);
-      } else {
-        const conteudo = await file.text();
-        setTexto(conteudo);
-      }
-    } catch {
-      setErro("Erro ao processar o arquivo. Verifique se o backend está rodando.");
+      // TODOS os formatos vão para o backend (PDF, DOCX, TXT)
+      const extraido = await uploadArquivo(file);
+      setTexto(extraido);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "";
+      setErro(
+        msg ||
+          "Erro ao processar o arquivo. Verifique se o backend está rodando."
+      );
     } finally {
       setCarregando(false);
     }
@@ -251,7 +251,7 @@ export default function StepText({ onNext }: Props) {
       </section>
 
       {/* ================================================================
-          BLOCO 2 — FLUXO ABNT (comportamento original mantido)
+          BLOCO 2 — FLUXO ABNT
           ================================================================ */}
       <section className="rounded-2xl border-2 border-slate-200 bg-white p-6 md:p-8">
         <div className="text-center mb-5">
