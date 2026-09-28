@@ -54,30 +54,54 @@ MIME_TYPES: dict[str, str] = {
 
 EXTENSOES_ACEITAS = {".pdf", ".doc", ".docx", ".odt"}
 
+# ---------------------------------------------------------------
+# Perfil do LibreOffice: evita conflitos quando múltiplas conversões
+# rodam ao mesmo tempo (o LO precisa de uma pasta de perfil exclusiva).
+# Em containers Free (Render), a pasta /tmp é a única gravável.
+# ---------------------------------------------------------------
+LO_PROFILE_DIR = "/tmp/lo_profile"
+LO_PROFILE_URL = "file:///tmp/lo_profile"
+
 
 def _converter_via_libreoffice(soffice: str, entrada: str, tmpdir: str, filtro: str):
     """Chama o LibreOffice headless para converter arquivos."""
+    # Garante que a pasta de perfil existe e está limpa
+    os.makedirs(LO_PROFILE_DIR, exist_ok=True)
+
+    cmd = [
+        soffice,
+        "--headless",
+        "--norestore",
+        "--nologo",
+        "--nodefault",
+        "--nofirststartwizard",
+        f"-env:UserInstallation={LO_PROFILE_URL}",
+        "--convert-to",
+        filtro,
+        "--outdir",
+        tmpdir,
+        entrada,
+    ]
+
     try:
-        subprocess.run(
-            [
-                soffice,
-                "--headless",
-                "--convert-to",
-                filtro,
-                "--outdir",
-                tmpdir,
-                entrada,
-            ],
+        resultado = subprocess.run(
+            cmd,
             check=True,
             timeout=180,
             capture_output=True,
         )
+        # Log de debug (aparece no painel do Render)
+        print(f"[CONVERT] stdout: {resultado.stdout.decode(errors='ignore')[:500]}")
     except subprocess.CalledProcessError as e:
+        stderr = e.stderr.decode(errors="ignore") if e.stderr else ""
+        stdout = e.stdout.decode(errors="ignore") if e.stdout else ""
+        print(f"[CONVERT] ERRO stderr: {stderr[:500]}")
+        print(f"[CONVERT] ERRO stdout: {stdout[:500]}")
         raise HTTPException(
             status_code=500,
             detail=(
                 "Falha na conversão via LibreOffice: "
-                f"{e.stderr.decode(errors='ignore') or 'erro desconhecido'}"
+                f"{stderr or stdout or 'erro desconhecido'}"
             ),
         )
     except subprocess.TimeoutExpired:
