@@ -37,11 +37,13 @@ WHITELIST_ACADEMICA = {
     "paradigmática", "empírico", "empírica", "empíricos", "axioma",
     "axiomas", "axiomático", "dialético", "dialética", "fenômeno",
     "fenômenos", "fenomenológico", "cognitivo", "cognitiva", "sistêmico",
-    "sistêmica", "conjectura", "conjecturas", "corroboração", "corroborar",
-    "hipoteticamente", "hipotético", "hipotética", "síntese", "sintético",
-    "sintética", "diagnóstico", "prognóstico", "estatístico", "estatística",
-    "amostragem", "amostral", "correlação", "variável", "variáveis",
-    "pós-positivismo", "neopositivismo",
+    "sistêmica", "conjectura", "conjecturas", "conjectural",
+    "corroboração", "corroborar", "hipoteticamente", "hipotético",
+    "hipotética", "síntese", "sintético", "sintética", "diagnóstico",
+    "prognóstico", "estatístico", "estatística", "amostragem", "amostral",
+    "correlação", "variável", "variáveis", "pós-positivismo",
+    "neopositivismo", "conceitual", "conceituais", "conceito", "conceitos",
+    "parcimônia", "parcimonioso", "parcimoniosa",
 
     # Conectivos acadêmicos
     "outrossim", "destarte", "porquanto", "conquanto", "entretanto",
@@ -73,6 +75,11 @@ WHITELIST_ACADEMICA = {
     "aristocrática", "meritocracia", "burocracia", "burocrático",
     "burocrática", "tecnocracia", "demagogia", "demagogo",
 
+    # Termos que o dicionário trata como PT-PT (falso positivo)
+    "seção", "seções", "aspecto", "aspectos",
+    "conceitual", "conceituais", "conceituar",
+    "parcimônia", "conjectural", "conjecturais",
+
     # Verbos/termos comuns que o dicionário pode não pegar
     "vigente", "vigentes", "vigência", "prorrogado", "prorrogada",
     "prorrogação", "revogado", "revogada", "revogação", "sancionado",
@@ -102,6 +109,54 @@ INFORMALIDADES_IGNORAR = {
     "tipo", "assim", "legal",
 }
 
+# ============================================================
+# Abreviações acadêmicas comuns em referências bibliográficas.
+# NÃO são erros ortográficos. Ex: "ed.", "et al.", "v.", "p."
+# ============================================================
+ABREVIACOES_ACADEMICAS = {
+    "ed", "al", "et", "vol", "v", "p", "pp", "cap", "org", "orgs",
+    "coord", "coords", "trad", "trads", "rev", "ampl", "atual",
+    "reimp", "ano", "n", "no", "op", "cit", "apud", "id", "ibid",
+    "ibdem", "passim", "s", "l", "sd", "sl", "sn",
+    "pt", "br", "puc", "uf", "if", "cefet", "unesp", "usp", "unb",
+}
+
+# ============================================================
+# Sugestões que NUNCA devem aparecer.
+# Inclui: PT-PT (que seria falso positivo em PT-BR) e lixo do dicionário.
+# ============================================================
+BLACKLIST_SUGESTOES = {
+    # Lixo do dicionário
+    "pga", "pr", "nó", "ré", "ta", "va", "la",
+    "oi", "eu", "tu", "ele", "ela", "vi", "vou",
+    "pia", "pré", "pró", "na", "nê", "no",
+
+    # Variantes PT-PT (erradas em PT-BR)
+    "concetual", "concetuais", "conjetural", "conjeturais",
+    "secção", "secções", "parcimónia", "aspeto", "aspetos",
+    "conceção", "conceções", "recção", "recções",
+    "acção", "acções", "actor", "actores", "actriz", "actrizes",
+    "activo", "activa", "activos", "activas", "actividade", "actividades",
+    "actual", "actuais", "actualmente", "actualizar", "actualização",
+    "adopção", "adoptar", "adoptado", "adoptada",
+    "afecto", "afectivo", "afectiva", "afectado", "afectada",
+    "colecção", "colecções", "colectivo", "colectiva", "colectividade",
+    "director", "directora", "directores", "directoras",
+    "directo", "directa", "directos", "directas", "directamente",
+    "efectivo", "efectiva", "efectivos", "efectivas", "efectivamente",
+    "electrónico", "electrónica", "electrónicos", "electrónicas",
+    "exacto", "exacta", "exactos", "exactas", "exactamente",
+    "facto", "factos", "factor", "factores",
+    "inspecção", "inspecções", "objectivo", "objectiva", "objectivos", "objectivas",
+    "objecto", "objectos", "projecto", "projectos", "projectar",
+    "protecção", "proteger", "protegido", "protegida",
+    "reacção", "reacções", "realização", "realizações",
+    "recepcção", "receção", "receções",
+    "selecto", "selecta", "selectos", "selectas", "seleccionar",
+    "subjectivo", "subjectiva", "subjectivos", "subjectivas",
+    "subjectividade", "sujeito",
+}
+
 # Sufixos típicos de palavras acadêmicas longas
 SUFIXOS_ACADEMICOS = (
     "ção", "ções", "mente", "ismo", "ismos", "ista", "istas",
@@ -113,13 +168,6 @@ SUFIXOS_ACADEMICOS = (
     "ência", "ências", "ância", "âncias",
 )
 
-# Sugestões que NUNCA devem aparecer (são lixo do dicionário)
-BLACKLIST_SUGESTOES = {
-    "pga", "pr", "nó", "ré", "ta", "va", "la",
-    "oi", "eu", "tu", "ele", "ela", "vi", "vou",
-    "pia", "pré", "pró", "na", "nê", "no",
-}
-
 
 def _e_palavra_academica(palavra: str) -> bool:
     """Detecta palavras que parecem acadêmicas/legítimas e não devem ser alertadas."""
@@ -129,6 +177,13 @@ def _e_palavra_academica(palavra: str) -> bool:
         return True
 
     if p in INFORMALIDADES_IGNORAR:
+        return True
+
+    if p in ABREVIACOES_ACADEMICAS:
+        return True
+
+    # Palavras muito curtas (até 3 letras) são quase sempre abreviações
+    if len(p) <= 3:
         return True
 
     # Palavras muito longas (12+ letras) geralmente são compostas corretas
@@ -168,6 +223,7 @@ def verificar_ortografia(texto: str):
 
     erros = []
     for palavra in palavras_erradas:
+        # Ignora se a palavra está no dicionário PT-BR (candidato exato)
         sugestoes_raw = spell.candidates(palavra) or set()
 
         sugestoes_boas = [
@@ -175,6 +231,7 @@ def verificar_ortografia(texto: str):
             if s.lower() not in BLACKLIST_SUGESTOES
             and abs(len(s) - len(palavra)) <= 3
             and s[0].lower() == palavra[0].lower()
+            and s.lower() != palavra.lower()
         ]
 
         if not sugestoes_boas:

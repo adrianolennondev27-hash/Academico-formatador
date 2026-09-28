@@ -43,17 +43,32 @@ PRIMEIRA_PESSOA_PADROES = [
     r"\bacredito\b", r"\bacreditamos\b",
 ]
 
+# ============================================================
+# Regex do "a/há": só dispara quando "a" (minúsculo) é seguido
+# por NÚMERO/QUANTIDADE + unidade de tempo.
+# Exemplos que disparam: "a dois anos", "a três dias", "a 5 meses".
+# Exemplos que NÃO disparam: "A flexibilização... por horas".
+# ============================================================
+_QUANTIFICADORES = (
+    r"\d+"
+    r"|um|uma|dois|duas|três|quatro|cinco|seis|sete|oito|nove|dez"
+    r"|onze|doze|quinze|vinte|trinta|cinquenta|cem"
+    r"|alguns|algumas|poucos|poucas|muitos|muitas"
+)
+_UNIDADES_TEMPO = (
+    r"dias?|meses?|anos?|horas?|minutos?|semanas?|décadas?|séculos?"
+)
+PADRAO_A_HA = re.compile(
+    rf"\ba\s+(?:{_QUANTIFICADORES})\s+(?:{_UNIDADES_TEMPO})\b"
+)
+
 
 def verificar_gramatica(texto: str):
     erros = []
     texto_lower = texto.lower()
 
-    # 1. "a" no lugar de "há" (tempo decorrido)
-    padrao_a_ha = re.compile(
-        r"\ba\s+(?:\w+\s+)*(?:dias?|meses?|anos?|horas?|minutos?|semanas?|décadas?)\b",
-        re.IGNORECASE,
-    )
-    for match in padrao_a_ha.finditer(texto):
+    # 1. "a" no lugar de "há" (tempo decorrido) — restrito a "a X tempo"
+    for match in PADRAO_A_HA.finditer(texto):
         erros.append({
             "tipo": "gramatica",
             "regra": "Uso de 'a' no lugar de 'há'",
