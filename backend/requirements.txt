@@ -5,6 +5,7 @@ pydantic
 pdfplumber
 pdf2image
 pdf2docx
+pypdf
 pytesseract
 opencv-python-headless
 python-docx
