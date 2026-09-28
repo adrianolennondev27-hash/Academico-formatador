@@ -145,7 +145,7 @@ export default function StepConfig({
         </div>
       </div>
 
-      {/* ÁREA DA FOLHA DE ROSTO */}
+      {/* FOLHA DE ROSTO */}
       <div className="p-5 bg-slate-50 border border-slate-200 rounded-xl space-y-4">
         <div className="flex items-center gap-3">
           <input
@@ -176,7 +176,7 @@ export default function StepConfig({
         )}
       </div>
 
-      {/* ÁREA DO SUMÁRIO */}
+      {/* SUMÁRIO */}
       <div className="p-5 bg-slate-50 border border-slate-200 rounded-xl space-y-4">
         <div className="flex items-center gap-3">
           <input
@@ -197,9 +197,29 @@ export default function StepConfig({
             que estiverem numerados (ex: <code className="bg-white px-1 rounded">1. INTRODUÇÃO</code>,{" "}
             <code className="bg-white px-1 rounded">2. DESENVOLVIMENTO</code>,{" "}
             <code className="bg-white px-1 rounded">2.1. Contexto</code>) e gera o sumário.
-            Certifique-se de que o texto tenha títulos numerados.
           </div>
         )}
+      </div>
+
+      {/* REFERÊNCIAS */}
+      <div className="p-5 bg-slate-50 border border-slate-200 rounded-xl space-y-4">
+        <div>
+          <label className="block text-sm font-semibold text-slate-800 mb-1">
+            Referências Bibliográficas
+          </label>
+          <p className="text-xs text-slate-500 mb-3">
+            Cole aqui as referências, <strong>uma por linha</strong>. O sistema adiciona o título
+            &quot;REFERÊNCIAS&quot; automaticamente e cria uma página nova no final do documento.
+            Se não houver referências, deixe em branco.
+          </p>
+        </div>
+        <textarea
+          value={metadados.referencias}
+          onChange={(e) => updateCampo("referencias", e.target.value)}
+          rows={8}
+          placeholder={"APPOLINÁRIO, F. Dicionário de metodologia científica. 2. ed. São Paulo: Atlas, 2011.\nGIL, A. C. Como elaborar projetos de pesquisa. 6. ed. São Paulo: Atlas, 2017."}
+          className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm resize-y font-mono"
+        />
       </div>
 
       {erro && (

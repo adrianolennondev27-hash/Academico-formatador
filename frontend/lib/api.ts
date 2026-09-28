@@ -30,6 +30,7 @@ export interface MetadadosABNT {
   incluir_folha_rosto: boolean;
   natureza_trabalho: string;
   incluir_sumario: boolean;
+  referencias: string;
 }
 
 export async function limparTexto(texto: string): Promise<string> {
@@ -43,7 +44,6 @@ export async function limparTexto(texto: string): Promise<string> {
   return data.texto_limpo;
 }
 
-// Envia qualquer arquivo (PDF, DOCX, TXT) para o backend extrair o texto
 export async function uploadArquivo(file: File): Promise<string> {
   const formData = new FormData();
   formData.append("file", file);

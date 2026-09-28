@@ -12,7 +12,6 @@ router = APIRouter(prefix="/api/v1", tags=["upload"])
 
 
 def _e_docx_real(caminho: str) -> bool:
-    """Verifica se o arquivo é um .docx de verdade (ZIP contendo word/document.xml)."""
     try:
         with zipfile.ZipFile(caminho, "r") as z:
             nomes = z.namelist()
@@ -22,7 +21,6 @@ def _e_docx_real(caminho: str) -> bool:
 
 
 def _extrair_texto_docx(caminho: str) -> str:
-    """Extrai o texto de um arquivo .docx usando python-docx."""
     try:
         from docx import Document
         doc = Document(caminho)
@@ -38,7 +36,6 @@ def _extrair_texto_docx(caminho: str) -> str:
 
 
 def _extrair_texto_txt(caminho: str) -> str:
-    """Lê um arquivo .txt tentando UTF-8 e caindo para latin-1."""
     try:
         with open(caminho, "r", encoding="utf-8") as f:
             return f.read()
@@ -64,12 +61,10 @@ async def upload_arquivo(file: UploadFile = File(...)):
             status_code=400,
             detail=(
                 f"Formato '{ext}' não aceito. "
-                "Envie PDF, DOCX (Word 2007+) ou TXT. "
-                "Se o seu arquivo é .doc (Word antigo), salve como .docx antes."
+                "Envie PDF, DOCX (Word 2007+) ou TXT."
             ),
         )
 
-    # Salva o arquivo temporariamente
     with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as temp_file:
         shutil.copyfileobj(file.file, temp_file)
         caminho_temporario = temp_file.name
@@ -78,47 +73,32 @@ async def upload_arquivo(file: UploadFile = File(...)):
         texto_bruto = ""
         metodo = "Digital"
 
-        # ---------------------------------------------
-        # PDF
-        # ---------------------------------------------
         if ext == ".pdf":
             texto_bruto = extrair_texto_pdf(caminho_temporario)
-
-            # Se texto curto → provavelmente escaneado → OCR
             if len(texto_bruto) < 50:
                 print("PDF parece ser escaneado. Acionando OCR...")
                 texto_bruto = extrair_texto_ocr(caminho_temporario)
                 metodo = "OCR"
-
             if not texto_bruto:
                 raise HTTPException(
                     status_code=422,
                     detail="Não foi possível extrair texto do PDF.",
                 )
 
-        # ---------------------------------------------
-        # DOCX (Word 2007+)
-        # ---------------------------------------------
         elif ext == ".docx":
             if not _e_docx_real(caminho_temporario):
                 raise HTTPException(
                     status_code=400,
-                    detail=(
-                        "O arquivo tem extensão .docx, mas não é um documento Word válido. "
-                        "Verifique se não é um PDF renomeado ou um arquivo corrompido."
-                    ),
+                    detail="O arquivo .docx não é válido.",
                 )
             texto_bruto = _extrair_texto_docx(caminho_temporario)
             metodo = "Word (DOCX)"
             if not texto_bruto:
                 raise HTTPException(
                     status_code=422,
-                    detail="Não foi possível extrair texto do documento Word.",
+                    detail="Não foi possível extrair texto do Word.",
                 )
 
-        # ---------------------------------------------
-        # TXT
-        # ---------------------------------------------
         elif ext == ".txt":
             texto_bruto = _extrair_texto_txt(caminho_temporario)
             metodo = "Texto (TXT)"
@@ -128,7 +108,6 @@ async def upload_arquivo(file: UploadFile = File(...)):
                     detail="O arquivo de texto está vazio.",
                 )
 
-        # Limpa o texto
         texto_limpo = limpar_texto_bruto(texto_bruto)
 
         return {
