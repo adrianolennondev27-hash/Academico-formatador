@@ -4,10 +4,6 @@ Módulo de CONVERSÃO PURA de formato.
 - Não aplica margens, fontes, capa ou qualquer formatação ABNT.
 - Apenas reempacota o arquivo em outro formato.
 - Processamento stateless: arquivo existe só na RAM/pasta temporária.
-
-Regra especial: PDF → DOCX usa `pdf2docx` (não LibreOffice), porque o
-LibreOffice gera Word inutilizável a partir de PDF. Para as outras
-conversões, usa o LibreOffice normalmente.
 """
 
 import os
@@ -15,6 +11,7 @@ import shutil
 import subprocess
 import tempfile
 import uuid
+import re
 from pathlib import Path
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
@@ -24,19 +21,14 @@ from app.abnt.pdf_converter import _encontrar_soffice
 
 router = APIRouter(prefix="/api/v1", tags=["conversão"])
 
-# ---------------------------------------------------------------
-# Pares de conversão suportados
-# ---------------------------------------------------------------
+
 CONVERSOES_SUPORTADAS: dict[tuple[str, str], str] = {
-    # Para PDF
     ("docx", "pdf"): "pdf",
     ("doc", "pdf"): "pdf",
     ("odt", "pdf"): "pdf",
-    # A partir de PDF (DOC/DOCX via pdf2docx, ODT via LibreOffice)
-    ("pdf", "docx"): "PDF2DOCX",  # marcador especial
-    ("pdf", "doc"): "PDF2DOCX",   # marcador especial
+    ("pdf", "docx"): "PDF2DOCX",
+    ("pdf", "doc"): "PDF2DOCX",
     ("pdf", "odt"): "odt",
-    # Entre formatos do Word / LibreOffice
     ("doc", "docx"): "docx:MS Word 2007 XML",
     ("docx", "doc"): "doc:MS Word 97",
     ("doc", "odt"): "odt",
@@ -54,54 +46,60 @@ MIME_TYPES: dict[str, str] = {
 
 EXTENSOES_ACEITAS = {".pdf", ".doc", ".docx", ".odt"}
 
-# ---------------------------------------------------------------
-# Perfil do LibreOffice: evita conflitos quando múltiplas conversões
-# rodam ao mesmo tempo (o LO precisa de uma pasta de perfil exclusiva).
-# Em containers Free (Render), a pasta /tmp é a única gravável.
-# ---------------------------------------------------------------
-LO_PROFILE_DIR = "/tmp/lo_profile"
-LO_PROFILE_URL = "file:///tmp/lo_profile"
+
+def _sanitizar_nome(nome: str) -> str:
+    """
+    Remove caracteres problemáticos do nome do arquivo:
+    - Travessões (–, —) → hífen
+    - Aspas curvas (" " ' ') → reto
+    - Outros símbolos unicode → vazio
+    
+    Isso evita erro de encoding no subprocess do LibreOffice.
+    """
+    # Normaliza unicode (NFC)
+    import unicodedata
+    nome = unicodedata.normalize("NFC", nome)
+
+    # Substitui travessões e aspas curvas
+    nome = nome.replace("–", "-").replace("—", "-")
+    nome = nome.replace(""", "\"").replace(""", "\"")
+    nome = nome.replace("'", "'").replace("'", "'")
+
+    # Remove outros caracteres não-ASCII problemáticos
+    nome = re.sub(r"[^\w\s\-\.]", "", nome, flags=re.UNICODE)
+
+    return nome.strip() or "arquivo"
 
 
 def _converter_via_libreoffice(soffice: str, entrada: str, tmpdir: str, filtro: str):
     """Chama o LibreOffice headless para converter arquivos."""
-    # Garante que a pasta de perfil existe e está limpa
-    os.makedirs(LO_PROFILE_DIR, exist_ok=True)
-
-    cmd = [
-        soffice,
-        "--headless",
-        "--norestore",
-        "--nologo",
-        "--nodefault",
-        "--nofirststartwizard",
-        f"-env:UserInstallation={LO_PROFILE_URL}",
-        "--convert-to",
-        filtro,
-        "--outdir",
-        tmpdir,
-        entrada,
-    ]
-
     try:
-        resultado = subprocess.run(
-            cmd,
+        subprocess.run(
+            [
+                soffice,
+                "--headless",
+                "--norestore",
+                "--nologo",
+                "--nodefault",
+                f"-env:UserInstallation=file://{tmpdir}/lo_profile",
+                "--convert-to",
+                filtro,
+                "--outdir",
+                tmpdir,
+                entrada,
+            ],
             check=True,
             timeout=180,
             capture_output=True,
+            encoding="utf-8",
+            errors="replace",
         )
-        # Log de debug (aparece no painel do Render)
-        print(f"[CONVERT] stdout: {resultado.stdout.decode(errors='ignore')[:500]}")
     except subprocess.CalledProcessError as e:
-        stderr = e.stderr.decode(errors="ignore") if e.stderr else ""
-        stdout = e.stdout.decode(errors="ignore") if e.stdout else ""
-        print(f"[CONVERT] ERRO stderr: {stderr[:500]}")
-        print(f"[CONVERT] ERRO stdout: {stdout[:500]}")
         raise HTTPException(
             status_code=500,
             detail=(
                 "Falha na conversão via LibreOffice: "
-                f"{stderr or stdout or 'erro desconhecido'}"
+                f"{(e.stderr or '')[:300] or 'erro desconhecido'}"
             ),
         )
     except subprocess.TimeoutExpired:
@@ -112,16 +110,13 @@ def _converter_via_libreoffice(soffice: str, entrada: str, tmpdir: str, filtro: 
 
 
 def _converter_via_pdf2docx(entrada: str, saida: str):
-    """Converte PDF → DOCX usando pdf2docx (texto editável de verdade)."""
+    """Converte PDF → DOCX usando pdf2docx."""
     try:
         from pdf2docx import Converter
     except ImportError:
         raise HTTPException(
             status_code=500,
-            detail=(
-                "Biblioteca pdf2docx não instalada. "
-                "Rode no venv: pip install pdf2docx"
-            ),
+            detail="Biblioteca pdf2docx não instalada.",
         )
 
     try:
@@ -131,7 +126,7 @@ def _converter_via_pdf2docx(entrada: str, saida: str):
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Falha ao converter PDF (pdf2docx): {str(e)}",
+            detail=f"Falha ao converter PDF: {str(e)}",
         )
 
 
@@ -140,26 +135,18 @@ async def converter(
     file: UploadFile = File(...),
     formato_saida: str = Form(...),
 ):
-    """
-    Conversão pura de formato — SEM ABNT.
-
-    Parâmetros:
-    - file: arquivo de entrada (PDF, DOC, DOCX ou ODT)
-    - formato_saida: 'pdf', 'docx', 'doc' ou 'odt'
-    """
     if not file.filename:
         raise HTTPException(status_code=400, detail="Nenhum arquivo enviado.")
 
-    ext_entrada = Path(file.filename).suffix.lower()
+    # Sanitiza o nome do arquivo (remove travessões, aspas curvas, etc.)
+    nome_original = _sanitizar_nome(file.filename)
+    ext_entrada = Path(nome_original).suffix.lower()
     formato_saida = formato_saida.lower().strip().lstrip(".")
 
     if ext_entrada not in EXTENSOES_ACEITAS:
         raise HTTPException(
             status_code=400,
-            detail=(
-                f"Formato de entrada '{ext_entrada}' não suportado. "
-                "Aceitos: PDF, DOC, DOCX, ODT."
-            ),
+            detail=f"Formato '{ext_entrada}' não suportado. Aceitos: PDF, DOC, DOCX, ODT.",
         )
 
     if ext_entrada.lstrip(".") == formato_saida:
@@ -172,40 +159,33 @@ async def converter(
     if chave not in CONVERSOES_SUPORTADAS:
         raise HTTPException(
             status_code=400,
-            detail=(
-                f"Conversão {ext_entrada} → .{formato_saida} não é suportada."
-            ),
+            detail=f"Conversão {ext_entrada} → .{formato_saida} não é suportada.",
         )
 
     filtro = CONVERSOES_SUPORTADAS[chave]
 
     tmpdir = tempfile.mkdtemp(prefix="fva_conv_")
     try:
+        # Nome curto e seguro dentro do tmpdir
         entrada_path = os.path.join(
             tmpdir, f"entrada_{uuid.uuid4().hex}{ext_entrada}"
         )
         with open(entrada_path, "wb") as f:
             f.write(await file.read())
 
-        nome_base = Path(file.filename).stem
+        nome_base = Path(nome_original).stem
 
-        # ------------------------------------------------
-        # Caminho 1: PDF → DOCX/DOC via pdf2docx
-        # ------------------------------------------------
         if filtro == "PDF2DOCX":
             saida_path = os.path.join(tmpdir, f"{nome_base}.docx")
             _converter_via_pdf2docx(entrada_path, saida_path)
             formato_final = "docx"
-        # ------------------------------------------------
-        # Caminho 2: Tudo o resto via LibreOffice
-        # ------------------------------------------------
         else:
             soffice = _encontrar_soffice()
             _converter_via_libreoffice(soffice, entrada_path, tmpdir, filtro)
             formato_final = formato_saida
             saida_path = None
             for nome in os.listdir(tmpdir):
-                if nome.endswith(f".{formato_final}") and nome != os.path.basename(entrada_path):
+                if nome.endswith(f".{formato_final}") and not nome.startswith("entrada_"):
                     saida_path = os.path.join(tmpdir, nome)
                     break
 
@@ -218,6 +198,7 @@ async def converter(
         with open(saida_path, "rb") as f:
             conteudo = f.read()
 
+        # Nome de saída limpo
         nome_saida = f"{nome_base}.{formato_final}"
 
         return StreamingResponse(
@@ -230,13 +211,11 @@ async def converter(
         )
 
     finally:
-        # Stateless: apaga tudo, inclusive em caso de erro
         shutil.rmtree(tmpdir, ignore_errors=True)
 
 
 @router.get("/converter/formatos")
 def formatos_suportados():
-    """Lista os pares de conversão suportados (útil para debug)."""
     return {
         "conversoes": [
             {"de": de, "para": para}
