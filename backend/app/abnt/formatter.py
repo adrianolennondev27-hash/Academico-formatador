@@ -27,6 +27,47 @@ def _configurar_margens(secao):
     secao.right_margin = Cm(2)
 
 
+def _limpar_footer_completo(secao):
+    """Limpa footer normal E first_page_footer."""
+    # Footer normal
+    secao.footer.is_linked_to_previous = False
+    for p in list(secao.footer.paragraphs):
+        p._element.getparent().remove(p._element)
+    secao.footer.add_paragraph()
+
+    # First page footer
+    secao.first_page_footer.is_linked_to_previous = False
+    for p in list(secao.first_page_footer.paragraphs):
+        p._element.getparent().remove(p._element)
+    secao.first_page_footer.add_paragraph()
+
+
+def _cidade_ano_no_footer(secao, cidade: str, ano: str):
+    """
+    Coloca cidade e ano no RODAPÉ da primeira página da seção.
+    
+    Como a seção tem different_first_page_header_footer=True,
+    o rodapé correto é `first_page_footer`.
+    """
+    _limpar_footer_completo(secao)
+
+    footer = secao.first_page_footer
+    p = footer.paragraphs[0]
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    if cidade:
+        run = p.add_run(cidade)
+        run.font.name = 'Arial'
+        run.font.size = Pt(12)
+
+    if ano:
+        p_ano = footer.add_paragraph()
+        p_ano.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = p_ano.add_run(ano)
+        run.font.name = 'Arial'
+        run.font.size = Pt(12)
+
+
 def _adicionar_numeracao_paginas(secao, start_num=3):
     header = secao.header
     header.is_linked_to_previous = False
@@ -53,20 +94,12 @@ def _adicionar_numeracao_paginas(secao, start_num=3):
 
 
 def _separar_referencias(texto: str) -> list:
-    """
-    Separa um bloco de texto em referências individuais (ABNT).
-    """
     if not texto.strip():
         return []
 
-    # 1. Normaliza APENAS tabs em espaços, preserva múltiplos espaços
     texto = texto.replace("\t", " ")
-
-    # 2. Se tem quebras de linha, usa como separador
     linhas = [l.strip() for l in re.split(r"\n+", texto) if l.strip()]
 
-    # 3. Se sobraram menos de 2 linhas, tenta quebrar por 2+ espaços
-    #    IMPORTANTE: antes de colapsar espaços!
     if len(linhas) < 2:
         texto_unico = texto.strip()
         partes = re.split(r"\s{2,}", texto_unico)
@@ -74,7 +107,6 @@ def _separar_referencias(texto: str) -> list:
         if len(partes) >= 2:
             linhas = partes
 
-    # 4. Se ainda tem menos de 2, tenta padrão ABNT
     if len(linhas) < 2:
         texto_unico = linhas[0] if linhas else texto.strip()
         matches = list(PADRAO_INICIO_REFERENCIA.finditer(texto_unico))
@@ -88,7 +120,6 @@ def _separar_referencias(texto: str) -> list:
                     novas.append(ref)
             linhas = novas
 
-    # 5. Limpa cada referência
     resultado = []
     for linha in linhas:
         linha = re.sub(r"\s+", " ", linha).strip()
@@ -213,94 +244,80 @@ def gerar_documento_abnt(metadados: dict, texto: str) -> BytesIO:
         and titulos_detectados
     )
 
+    cidade = metadados.get("cidade", "")
+    ano = metadados.get("ano", "")
+
+    # ============================================
+    # SEÇÃO 1: CAPA
+    # ============================================
     secao_1 = doc.sections[0]
     _configurar_margens(secao_1)
     secao_1.different_first_page_header_footer = True
+    _cidade_ano_no_footer(secao_1, cidade, ano)
 
-    def criar_capa():
-        p = doc.add_paragraph(metadados.get("instituicao", "").upper())
+    p = doc.add_paragraph(metadados.get("instituicao", "").upper())
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p = doc.add_paragraph(metadados.get("curso", ""))
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    primeiro = True
+    for nome in lista_alunos:
+        p = doc.add_paragraph(nome)
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        p = doc.add_paragraph(metadados.get("curso", ""))
-        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        if primeiro:
+            p.paragraph_format.space_before = Pt(100)
+            primeiro = False
+
+    p = doc.add_paragraph(metadados.get("titulo", "").upper())
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p.runs[0].bold = True
+    p.paragraph_format.space_before = Pt(140)
+
+    # ============================================
+    # SEÇÃO 2: FOLHA DE ROSTO
+    # ============================================
+    if tem_folha_rosto:
+        secao_2 = doc.add_section(WD_SECTION.NEW_PAGE)
+        _configurar_margens(secao_2)
+        secao_2.different_first_page_header_footer = True
+        _cidade_ano_no_footer(secao_2, cidade, ano)
 
         primeiro = True
         for nome in lista_alunos:
             p = doc.add_paragraph(nome)
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
             if primeiro:
-                p.paragraph_format.space_before = Pt(100)
+                p.paragraph_format.space_before = Pt(20)
                 primeiro = False
 
         p = doc.add_paragraph(metadados.get("titulo", "").upper())
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         p.runs[0].bold = True
-        p.paragraph_format.space_before = Pt(100)
-
-        p = doc.add_paragraph(metadados.get("cidade", ""))
-        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        p.paragraph_format.space_before = Pt(180)
-
-        p = doc.add_paragraph(metadados.get("ano", ""))
-        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-    criar_capa()
-
-    def criar_folha_rosto():
-        primeiro = True
-        for nome in lista_alunos:
-            p = doc.add_paragraph(nome)
-            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            if primeiro:
-                p.paragraph_format.page_break_before = True
-                p.paragraph_format.space_before = Pt(40)
-                primeiro = False
-
-        p = doc.add_paragraph(metadados.get("titulo", "").upper())
-        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        p.runs[0].bold = True
-        p.paragraph_format.space_before = Pt(80)
+        p.paragraph_format.space_before = Pt(40)
 
         p = doc.add_paragraph(metadados.get("natureza_trabalho", ""))
         p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
         p.paragraph_format.left_indent = Cm(8)
         p.paragraph_format.line_spacing = 1.0
-        p.paragraph_format.space_before = Pt(60)
+        p.paragraph_format.space_before = Pt(30)
 
-        num_autores = max(1, len(lista_alunos))
-        tam_natureza = len(metadados.get("natureza_trabalho", ""))
-
-        if num_autores >= 5 or tam_natureza > 300:
-            espaco = Pt(20)
-        elif num_autores >= 3 or tam_natureza > 150:
-            espaco = Pt(60)
-        else:
-            espaco = Pt(140)
-
-        p = doc.add_paragraph(metadados.get("cidade", ""))
-        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        p.paragraph_format.space_before = espaco
-
-        p = doc.add_paragraph(metadados.get("ano", ""))
-        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-    if tem_folha_rosto:
-        secao_2 = doc.add_section(WD_SECTION.NEW_PAGE)
-        _configurar_margens(secao_2)
-        secao_2.different_first_page_header_footer = True
-        criar_folha_rosto()
-
+    # ============================================
+    # SEÇÃO 3: SUMÁRIO
+    # ============================================
     if tem_sumario:
-        if tem_folha_rosto:
-            _criar_sumario(doc, titulos_detectados)
-        else:
-            secao_sumario = doc.add_section(WD_SECTION.NEW_PAGE)
-            _configurar_margens(secao_sumario)
-            secao_sumario.different_first_page_header_footer = True
-            _criar_sumario(doc, titulos_detectados)
+        secao_sumario = doc.add_section(WD_SECTION.NEW_PAGE)
+        _configurar_margens(secao_sumario)
+        secao_sumario.different_first_page_header_footer = True
+        _limpar_footer_completo(secao_sumario)
+        _criar_sumario(doc, titulos_detectados)
 
-    secao_3 = doc.add_section(WD_SECTION.NEW_PAGE)
-    _configurar_margens(secao_3)
-    _adicionar_numeracao_paginas(secao_3, start_num=3)
+    # ============================================
+    # SEÇÃO FINAL: TEXTO
+    # ============================================
+    secao_texto = doc.add_section(WD_SECTION.NEW_PAGE)
+    _configurar_margens(secao_texto)
+    _limpar_footer_completo(secao_texto)
+    _adicionar_numeracao_paginas(secao_texto, start_num=3)
 
     for par in paragrafos:
         num, tit = _detectar_titulo(par)
