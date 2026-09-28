@@ -12,21 +12,28 @@ app = FastAPI(
     version="1.1.0",
 )
 
-# CORS — permite desenvolvimento local + produção (Vercel)
+# ============================================================
+# CORS — permite desenvolvimento local + produção
+# ============================================================
 origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
 ]
 
-# Adiciona a URL de produção do Vercel (definida em env var)
+# Adiciona a URL de produção (definida em env var no Render)
 frontend_url = os.getenv("FRONTEND_URL")
 if frontend_url:
     origins.append(frontend_url)
 
+# ============================================================
+# Em produção, também aceita qualquer subdomínio do Render
+# (evita bloqueio de CORS quando o frontend muda de URL)
+# ============================================================
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=True,
+    allow_origin_regex=r"https://.*\.onrender\.com",
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
