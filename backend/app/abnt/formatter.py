@@ -27,31 +27,16 @@ def _configurar_margens(secao):
     secao.right_margin = Cm(2)
 
 
-def _limpar_footer_completo(secao):
-    """Limpa footer normal E first_page_footer."""
-    # Footer normal
+def _limpar_footer(secao):
     secao.footer.is_linked_to_previous = False
     for p in list(secao.footer.paragraphs):
         p._element.getparent().remove(p._element)
     secao.footer.add_paragraph()
 
-    # First page footer
-    secao.first_page_footer.is_linked_to_previous = False
-    for p in list(secao.first_page_footer.paragraphs):
-        p._element.getparent().remove(p._element)
-    secao.first_page_footer.add_paragraph()
-
 
 def _cidade_ano_no_footer(secao, cidade: str, ano: str):
-    """
-    Coloca cidade e ano no RODAPÉ da primeira página da seção.
-    
-    Como a seção tem different_first_page_header_footer=True,
-    o rodapé correto é `first_page_footer`.
-    """
-    _limpar_footer_completo(secao)
-
-    footer = secao.first_page_footer
+    _limpar_footer(secao)
+    footer = secao.footer
     p = footer.paragraphs[0]
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
@@ -66,6 +51,13 @@ def _cidade_ano_no_footer(secao, cidade: str, ano: str):
         run = p_ano.add_run(ano)
         run.font.name = 'Arial'
         run.font.size = Pt(12)
+
+
+def _limpar_footer_secao(secao):
+    secao.footer.is_linked_to_previous = False
+    for p in list(secao.footer.paragraphs):
+        p._element.getparent().remove(p._element)
+    secao.footer.add_paragraph()
 
 
 def _adicionar_numeracao_paginas(secao, start_num=3):
@@ -137,9 +129,6 @@ def _adicionar_pagina_referencias(doc, referencias_texto: str):
     run = p.add_run("REFERÊNCIAS")
     run.bold = True
     run.font.size = Pt(12)
-
-    if not referencias_texto.strip():
-        return
 
     referencias = _separar_referencias(referencias_texto)
 
@@ -243,13 +232,16 @@ def gerar_documento_abnt(metadados: dict, texto: str) -> BytesIO:
         metadados.get("incluir_sumario")
         and titulos_detectados
     )
+    # Só cria a página de REFERÊNCIAS se o checkbox estiver marcado E tiver texto
+    tem_referencias = bool(
+        metadados.get("incluir_referencias")
+        and metadados.get("referencias", "").strip()
+    )
 
     cidade = metadados.get("cidade", "")
     ano = metadados.get("ano", "")
 
-    # ============================================
     # SEÇÃO 1: CAPA
-    # ============================================
     secao_1 = doc.sections[0]
     _configurar_margens(secao_1)
     secao_1.different_first_page_header_footer = True
@@ -273,9 +265,7 @@ def gerar_documento_abnt(metadados: dict, texto: str) -> BytesIO:
     p.runs[0].bold = True
     p.paragraph_format.space_before = Pt(140)
 
-    # ============================================
     # SEÇÃO 2: FOLHA DE ROSTO
-    # ============================================
     if tem_folha_rosto:
         secao_2 = doc.add_section(WD_SECTION.NEW_PAGE)
         _configurar_margens(secao_2)
@@ -301,22 +291,18 @@ def gerar_documento_abnt(metadados: dict, texto: str) -> BytesIO:
         p.paragraph_format.line_spacing = 1.0
         p.paragraph_format.space_before = Pt(30)
 
-    # ============================================
     # SEÇÃO 3: SUMÁRIO
-    # ============================================
     if tem_sumario:
         secao_sumario = doc.add_section(WD_SECTION.NEW_PAGE)
         _configurar_margens(secao_sumario)
         secao_sumario.different_first_page_header_footer = True
-        _limpar_footer_completo(secao_sumario)
+        _limpar_footer_secao(secao_sumario)
         _criar_sumario(doc, titulos_detectados)
 
-    # ============================================
     # SEÇÃO FINAL: TEXTO
-    # ============================================
     secao_texto = doc.add_section(WD_SECTION.NEW_PAGE)
     _configurar_margens(secao_texto)
-    _limpar_footer_completo(secao_texto)
+    _limpar_footer_secao(secao_texto)
     _adicionar_numeracao_paginas(secao_texto, start_num=3)
 
     for par in paragrafos:
@@ -338,7 +324,9 @@ def gerar_documento_abnt(metadados: dict, texto: str) -> BytesIO:
             p.paragraph_format.line_spacing = 1.5
             p.paragraph_format.space_after = Pt(0)
 
-    _adicionar_pagina_referencias(doc, metadados.get("referencias", ""))
+    # Só adiciona REFERÊNCIAS se o checkbox estiver marcado E tiver texto
+    if tem_referencias:
+        _adicionar_pagina_referencias(doc, metadados.get("referencias", ""))
 
     buffer = BytesIO()
     doc.save(buffer)

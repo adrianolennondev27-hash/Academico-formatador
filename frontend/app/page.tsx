@@ -33,6 +33,7 @@ export default function Home() {
     incluir_folha_rosto: false,
     natureza_trabalho: "",
     incluir_sumario: false,
+    incluir_referencias: false,
     referencias: "",
   });
   const [alertasOrtografia, setAlertasOrtografia] = useState<AlertaOrtografia[]>([]);
@@ -55,6 +56,7 @@ export default function Home() {
       incluir_folha_rosto: false,
       natureza_trabalho: "",
       incluir_sumario: false,
+      incluir_referencias: false,
       referencias: "",
     });
     setAlertasOrtografia([]);

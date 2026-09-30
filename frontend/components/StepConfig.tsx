@@ -201,25 +201,36 @@ export default function StepConfig({
         )}
       </div>
 
-      {/* REFERÊNCIAS */}
+      {/* REFERÊNCIAS — AGORA COM CHECKBOX */}
       <div className="p-5 bg-slate-50 border border-slate-200 rounded-xl space-y-4">
-        <div>
-          <label className="block text-sm font-semibold text-slate-800 mb-1">
-            Referências Bibliográficas
+        <div className="flex items-center gap-3">
+          <input
+            type="checkbox"
+            id="referencias"
+            checked={metadados.incluir_referencias}
+            onChange={(e) => updateCampo("incluir_referencias", e.target.checked)}
+            className="w-5 h-5 text-blue-700 rounded focus:ring-blue-500 cursor-pointer"
+          />
+          <label htmlFor="referencias" className="text-sm font-semibold text-slate-800 cursor-pointer">
+            Incluir Referências Bibliográficas
           </label>
-          <p className="text-xs text-slate-500 mb-3">
-            Cole aqui as referências, <strong>uma por linha</strong>. O sistema adiciona o título
-            &quot;REFERÊNCIAS&quot; automaticamente e cria uma página nova no final do documento.
-            Se não houver referências, deixe em branco.
-          </p>
         </div>
-        <textarea
-          value={metadados.referencias}
-          onChange={(e) => updateCampo("referencias", e.target.value)}
-          rows={8}
-          placeholder={"APPOLINÁRIO, F. Dicionário de metodologia científica. 2. ed. São Paulo: Atlas, 2011.\nGIL, A. C. Como elaborar projetos de pesquisa. 6. ed. São Paulo: Atlas, 2017."}
-          className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm resize-y font-mono"
-        />
+
+        {metadados.incluir_referencias && (
+          <div className="animate-slide-up">
+            <p className="text-xs text-slate-500 mb-3">
+              Cole aqui as referências, <strong>uma por linha</strong>. O sistema adiciona o título
+              &quot;REFERÊNCIAS&quot; automaticamente e cria uma página nova no final do documento.
+            </p>
+            <textarea
+              value={metadados.referencias}
+              onChange={(e) => updateCampo("referencias", e.target.value)}
+              rows={8}
+              placeholder={"APPOLINÁRIO, F. Dicionário de metodologia científica. 2. ed. São Paulo: Atlas, 2011.\nGIL, A. C. Como elaborar projetos de pesquisa. 6. ed. São Paulo: Atlas, 2017."}
+              className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm resize-y font-mono"
+            />
+          </div>
+        )}
       </div>
 
       {erro && (

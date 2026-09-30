@@ -13,4 +13,5 @@ class MetadadosABNT(BaseModel):
     incluir_folha_rosto: bool = False
     natureza_trabalho: str = ""
     incluir_sumario: bool = False
+    incluir_referencias: bool = False
     referencias: str = ""

@@ -30,6 +30,7 @@ export interface MetadadosABNT {
   incluir_folha_rosto: boolean;
   natureza_trabalho: string;
   incluir_sumario: boolean;
+  incluir_referencias: boolean;
   referencias: string;
 }
 

@@ -9,16 +9,15 @@ interface Props {
 
 type FormatoSaida = "docx" | "pdf" | "odt";
 
+// ⚠️ TEMPORARIAMENTE REMOVIDO: "pdf" (LibreOffice instável)
+// Volta quando a gente implementar com reportlab
 const FORMATOS_SAIDA: { value: FormatoSaida; label: string }[] = [
   { value: "docx", label: "Word (.docx)" },
-  { value: "pdf", label: "PDF" },
   { value: "odt", label: "ODT (LibreOffice)" },
 ];
 
 export default function StepText({ onNext }: Props) {
-  // ====================================================================
-  // BLOCO SUPERIOR — CONVERSÃO PURA (PDF ↔ Word, Word → ODT, etc.)
-  // ====================================================================
+  // BLOCO SUPERIOR — CONVERSÃO PURA
   const [convArquivo, setConvArquivo] = useState<File | null>(null);
   const [convFormato, setConvFormato] = useState<FormatoSaida>("docx");
   const [convCarregando, setConvCarregando] = useState(false);
@@ -50,7 +49,7 @@ export default function StepText({ onNext }: Props) {
       const msg = e instanceof Error ? e.message : "";
       setConvErro(
         msg ||
-          "Erro na conversão. Verifique se o LibreOffice está instalado e se o backend está rodando."
+          "Erro na conversão. Verifique se o backend está rodando."
       );
     } finally {
       setConvCarregando(false);
@@ -68,9 +67,7 @@ export default function StepText({ onNext }: Props) {
     }
   }
 
-  // ====================================================================
   // BLOCO INFERIOR — FLUXO ABNT
-  // ====================================================================
   const [texto, setTexto] = useState("");
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState("");
@@ -101,7 +98,6 @@ export default function StepText({ onNext }: Props) {
     setErro("");
     setNomeArquivo(file.name);
     try {
-      // TODOS os formatos vão para o backend (PDF, DOCX, TXT)
       const extraido = await uploadArquivo(file);
       setTexto(extraido);
     } catch (e: unknown) {
@@ -133,9 +129,7 @@ export default function StepText({ onNext }: Props) {
 
   return (
     <div className="space-y-10 animate-slide-up">
-      {/* ================================================================
-          BLOCO 1 — CONVERSÃO PURA (sem ABNT)
-          ================================================================ */}
+      {/* BLOCO 1 — CONVERSÃO PURA */}
       <section className="rounded-2xl border-2 border-slate-200 bg-slate-50/60 p-6 md:p-8">
         <div className="mb-5">
           <h2 className="text-xl font-bold text-slate-900 mb-1">
@@ -248,11 +242,15 @@ export default function StepText({ onNext }: Props) {
             ✓ Conversão concluída. O download foi iniciado.
           </div>
         )}
+
+        <div className="mt-4 p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg text-xs">
+          <strong>⚠️ Conversão para PDF temporariamente indisponível.</strong>{" "}
+          Estamos trabalhando numa solução sem dependência do LibreOffice.
+          Aceitamos: PDF, DOC, DOCX e ODT como entrada.
+        </div>
       </section>
 
-      {/* ================================================================
-          BLOCO 2 — FLUXO ABNT
-          ================================================================ */}
+      {/* BLOCO 2 — FLUXO ABNT */}
       <section className="rounded-2xl border-2 border-slate-200 bg-white p-6 md:p-8">
         <div className="text-center mb-5">
           <h2 className="text-xl font-bold text-slate-900 mb-1">
